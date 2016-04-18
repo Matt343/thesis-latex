@@ -19,7 +19,7 @@
 % foot of page notes, don't include the endnotes package in the 
 % usepackage command, below.
 
-\documentclass[letterpaper,twocolumn,10pt]{article}
+\documentclass[letterpaper,twocolumn,11pt]{article}
 \usepackage{epsfig,endnotes}
 \usepackage[toc,page]{appendix}
 \begin{document}
@@ -55,7 +55,7 @@ Strong, static type systems offer the programmer the ability to reason about the
 
 \section{Motivation} \label{motivation}
 
-Go features a strong static type system, but the semantics of the type system are quite limited. Without a way to use parametric polymorphism, it is impossible to write statically type checked functions that can be reused for multiple similar types. This leads programmers to either duplicate code many times to create separate, specialized versions of otherwise identical functions or bypass the static type system using casting and reflection. Both of these approaches have practical drawbacks compared to generic programming, and they introduce increased potential for errors. In this paper, we outline an extension to the Go language that includes generic functions that are statically checked, but transformed into standard Go code at compile time. 
+Go features a strong static type system, but the semantics of the type system are quite limited. Without a way to use parametric polymorphism, it is impossible to write statically type checked functions that can be reused for multiple similar types. This leads programmers to either duplicate code many times to create separate, specialized versions of otherwise identical functions or bypass the static type system using casting and reflection. Both of these approaches have practical drawbacks compared to generic programming, and they introduce increased potential for errors. In this paper, I outline an extension to the Go language that includes generic functions that are statically checked, but transformed into standard Go code at compile time. 
 
 Since Go is a compile language, changes to the language specification must be accomplished by changing the compiler(s) that implement the language. The new language constructs needed to implement generic functions require changes to the grammar that defines valid Go programs, so the parser for the language must be updated, and new node types must be added to the abstract syntax tree (AST) of the language. These changes to the parser are outlined in section \ref{parsing}. Once the compiler can parse the new language constructs, the type checking system must be updated with the new type rules. These changes to the type checking system in the compiler are detailed in section \ref{type_checking}. Section \ref{code_generation} explains the changes needed to generate generic code correctly, as well as the trade offs for different code generation strategies. 
 
@@ -81,23 +81,172 @@ The complete changes to the Go grammar are included in Appendix \ref{App:grammar
 
 \section{Type Checking} \label{type_checking}
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Once the new language constructs were correctly parsed into AST nodes, the type checker had to be updated to respect the new typing rules. The type checking module of the standard library, \texttt{go/types}, implements a type checker that associates each expression and definition in the AST with a type and verifies that all of they type rules are obeyed. The type checker recursively processes each node in the AST, building up types for complex expressions from their constituents. The system also infers types if they are omitted in the short form of variable assignment. 
+
+In generic function definitions, an extra parameter list is included that contains named type parameters and their type bounds:
+
+{ \tt \small
+\begin{verbatim}
+func foo<A B>(x A) A
+\end{verbatim}
+}
+
+In this example, \texttt{A} is the type parameter, \texttt{B} is the type bound of \texttt{A}, and \texttt{foo} has type $\texttt{A} \rightarrow \texttt{A}$. The type bound must be an interface type, or a named type that represents an interface type, because these are the only types in Go's type system that can have distinct subtypes. Within the body of the function, the type parameters are assumed to implement the interface of the type bound, but are otherwise unknown types. This means that values of type \texttt{A} support the operations defined on interface \texttt{B}, but \texttt{A} and \texttt{B} are not considered to be identical types. As a consequence, complex types such as slice types \texttt{[]A} and \texttt{[]B} are not assignable to each other.
+
+At the call sites of a generic function, each type parameter is instantiated with a specific concrete type. Uses of the type parameter are substituted to use the specific type argument for that call site, and the function call is type checked using the usual rules. If \texttt{S} is a type that implements \texttt{B} and \texttt{val} has type \texttt{S}, then the call expression
+{ \tt \small
+\begin{verbatim}
+foo(<S>, val)
+\end{verbatim}
+}
+uses \texttt{S} as the specific type argument for parameter \texttt{A}. In this case, the type of the complete call expression is \texttt{S}. In functions where the type parameters are used in the formal parameters of the function signature, their types can be inferred from the types of the arguments of to the function. In this case, the function call could be written as \texttt{foo(val)} without changing the meaning.
 
 \section{Code Generation} \label{code_generation}
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+The most involved changes to the compiler were required to generate the correct code to implement the new language constructs. Generic functions must be able to accept arguments of types that are different than the types used to type check and generate the body of the function. In the case of arguments that have the direct type of a type parameter, the argument can simply be converted to the interface type of the type bound and used as a regular interface type within the body of the function. If a return value from the function uses a type parameter directly a type assertion can be used after the value is returned to transform it back into the specific type substituted for that type parameter at the call site. For arguments that have more complex types involving type parameters, such as slices of or pointers to a type parameter, there is no way within the existing type system to translate the memory layout of the actual argument to the expected format. For these values, the code generation system must be extended to provide a method of generating the generic function that is independent of the memory layout of the argument values. There are several possible methodologies for accomplishing this, with trade offs in implementation complexity, runtime speed, and code size. 
 
 \subsection{AST Transformation} \label{ast_transformation}
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+A process of AST transformation is used to translate the input AST into a standard Go AST with no generic functionality. This AST transformation is implemented as a depth-first traversal of the AST, with each node being transformed by a function into it's standard form. In this way, complex expressions are translated by first transforming their parts, and then performing any additional fix up work needed to combine the simple expressions into the complex one.
 
-\subsection{Type Erasure} \label{type_erasure}
+For statements, additional bookkeeping must be done to accommodate transformations that turn one statement into several statements. This is necessary, for instance, when dealing with functions with multiple return values. Multiple return values are only accessible through a multi-part assignment statement, so any transformations that need to be made to the individual return values must be made as a separate statement. For example, consider a function \texttt{foo} that returns two values, where we would like to apply a function \texttt{f} to each value:
+{ \tt \small
+\begin{verbatim}
+a, b := foo()
+\end{verbatim}
+}
+This must be transformed into the two statements:
+{ \tt \small
+\begin{verbatim}
+a', b' := foo()
+a, b := f(a), f(b)
+\end{verbatim}
+}
+where \texttt{a'} and \texttt{b'} represent new temporary variables. The AST transformation accommodates this by allowing the transformation function for statements to return a list of result statements, instead of only a single statement. It is left to the surrounding context of the statement to determine the correct way to insert the additional statements. For blocks, this simply adds statements to the body of the block, but there are other contexts for statements that require additional thought. There are instances where a only a single statement is allowed, such as parts of \texttt{if} and \texttt{for} statements. In these cases, if the simple statement is transformed into multiple statements, the extra statements must be inserted elsewhere in the AST. For example, consider the case where the previous assignment statement occurred at the beginning of an \texttt{if} statement:
+{ \tt \small
+\begin{verbatim}
+if a, b := foo(); a != b { ... }
+\end{verbatim} 
+}
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+This must be transformed as follows:
+{ \tt \small
+\begin{verbatim}
+a', b' := foo()
+if a, b := f(a), f(b); a != b { ... }
+\end{verbatim}
+}
+
+If, instead, the assignment statement occurred as the update statement of a \texttt{for} loop:
+{ \tt \small
+\begin{verbatim}
+for a, b := 0, 0; a == b; a, b = foo() { ... }
+\end{verbatim} 
+}
+This would be transformed as:
+{ \tt \small
+\begin{verbatim}
+var a', b' T
+for a, b := 0, 0; a == b; a, b = f(a'), f(b') {
+  ...
+  a', b' = foo()
+}
+\end{verbatim} 
+}
+
 
 \subsection{Reflection} \label{reflection}
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+The method I used involves rewriting expressions that use values of complex types including type parameters into invocations of the runtime introspection system. The Go standard library provides the \texttt{reflect} package, which includes mechanisms for operating on types and values based on their runtime type without knowing the memory layout at compile time. The \texttt{reflect} package includes two main types, \texttt{reflect.Value} and \texttt{reflect.Type}, which provide runtime representations of the value and type parts of interface expressions. The input to the \texttt{reflect} package are values of the empty interface type, which all values conform to. Once a value has been transformed into a \texttt{reflect.Value}, operations that are normally valid on complex types, such as dereferencing a pointer, indexing a slice, or updating a map, are available as operations on the \texttt{reflect.Value}. The results of these reflection expressions can be extracted as an empty interface value, which can optionally be transformed into the concrete expected type using type assertions. In this manner, any value with a complex type including type parameters is transformed into an empty interface, and any operations on these values are transformed into reflection operations.
+
+There are many functions in the Go standard library that use a kind of de-facto parametric polymorphism, in that they operate on collection types independent of the element types of the collections. These functions must also be transformed into their reflection equivalents, since all collection values that have type parameters as element types will be represented as empty interface values instead of collection values.
+
+Care is taken when performing reflection transformations to avoid extracting the value of one reflection operation as an empty interface, only to immediately transform the value back into a \texttt{reflect.Value}. This is important not only for efficiency, but also in cases where a reflection expression is on the right hand side of an assignment. In this case, the \texttt{reflect} package allows certain values to be assignable, but only if they are the result of accessing an addressable part of a value, such as an array element, stuct field, or pointer value. It would not be possible to use the reflection expression generated by transforming the right hand side of such an assignment as an addressable value if it was first extracted as an empty interface and then turned back into a \texttt{reflect.Value}.
+
+After this transformation is accomplished, the bodies of the generic functions are valid standard Go code, and code generation can continue as normal. Some examples of expressions and their reflection versions follow, to illustrate how the transformation occurs.
+
+\begin{itemize}
+\item
+Pointer dereferencing:
+{ \tt \small
+\begin{verbatim}
+*p
+\end{verbatim}
+}
+Reflection:
+{ \tt \small
+\begin{verbatim}
+reflect.Indirect(reflect.ValueOf(p))
+  .Interface()
+\end{verbatim}
+}
+
+\item
+Slice indexing:
+{ \tt \small
+\begin{verbatim}
+s[i]
+\end{verbatim}
+}
+Reflection:
+{ \tt \small
+\begin{verbatim}
+reflect.ValueOf(s).Index(i).Interface()
+\end{verbatim}
+}
+
+\item
+Slice index assignment:
+{ \tt \small
+\begin{verbatim}
+s[i] = value
+\end{verbatim}
+}
+Reflection:
+{ \tt \small
+\begin{verbatim}
+reflect.ValueOf(s).Index(i)
+  .Set(reflect.ValueOf(value))
+\end{verbatim}
+}
+
+\item
+Length calculation:
+{ \tt \small
+\begin{verbatim}
+len(s)
+\end{verbatim}
+}
+Reflection:
+{ \tt \small
+\begin{verbatim}
+reflect.ValueOf(s).Len()
+\end{verbatim}
+}
+
+\end{itemize}
+
+
+\subsection{Signature Transformation} \label{signature_transformation}
+
+In addition to transforming the bodies of generic functions, their type signatures and calling expressions are also changed. Any argument or return types that are complex types containing type parameters are transformed into empty interface values, so that the correct transformations are made to wrap input values in the empty interface context. Call sites of such functions are updated to perform type assertions on their results, so that the results are returned in the format that the calling expression expects. In addition, additional parameters are added to the signatures of generic functions. The added parameters are \texttt{reflect.Type} values that correspond to specific types substituted for each type parameter at the call site. These values are needed so that allocations involving type parameters can be translated into their reflection versions. For example, a function may include a call to \texttt{make} for a slice of a type parameter \texttt{A}:
+{ \tt \small
+\begin{verbatim}
+func f<A B>() []A {
+  return make([]A, 10)
+}
+\end{verbatim} 
+}
+This function will be transformed into:
+{ \tt \small
+\begin{verbatim}
+func f<A B>(t$A reflect.Type) interface{} {
+  return reflect.MakeSlice(t$A, 10)
+}
+\end{verbatim} 
+}
+
+If the reflection version of \texttt{make} was not used in this case, the returned slice would always be a slice of the type bound of \texttt{A}, not a slice of the concrete type supplied at the call site. A type assertion at the call sites of \texttt{f} transforms the resulting empty interface value into the slice of the concrete type expected.
 
 \section{Results} \label{results}
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
