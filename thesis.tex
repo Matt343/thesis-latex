@@ -20,8 +20,9 @@
 % usepackage command, below.
 
 \documentclass[letterpaper,twocolumn,11pt]{article}
-\usepackage{epsfig,endnotes,amsmath,pgf,hyperref,mathpartir}
+\usepackage{epsfig,endnotes,amsmath,pgf,hyperref,mathpartir,authblk,comment}
 \usepackage[toc,page]{appendix}
+
 \begin{document}
 
 % don't want date printed
@@ -30,12 +31,18 @@
 % make title bold and 14 pt font (Latex default is non-bold, 16 pt)
 \title{\Large \bf Parametric Polymorphism in the Go Programming Language}
 
-\author{
-  {\rm Matthew Allen}\\
-  University of Texas
-  \and
-  {\rm Jan S. Rellermeyer}
-}
+\author[1]{Matthew Allen}
+\author[1,2]{Jan S. Rellermeyer}
+\affil[1]{University of Texas at Austin}
+\affil[2]{IBM Research}
+\renewcommand\Authands{ and }
+
+% \author{
+%   {\rm Matthew Allen}\\
+%   University of Texas
+%   \and
+%   {\rm Jan S. Rellermeyer}
+% }
 
 \maketitle
 
@@ -45,7 +52,7 @@
 
 
 \subsection*{Abstract}
-An extension to the Go language was developed that introduces parametric polymorphism in the form of generic functions. The changes to the language and the compiler needed to implement the type system extensions are discussed, and alternative implementation strategies are described. The resulting implementation of generic functions is backwards compatible with the existing Go standard and is consistent with the design goals of the language, but it suffers from runtime performance degradation. 
+An extension to the Go language was developed that introduces parametric polymorphism in the form of generic functions. The changes to the language and the compiler needed to implement the type system extensions are discussed, and alternative implementation strategies are described. The resulting implementation of generic functions is backwards compatible with the existing Go standard and is consistent with the design goals of the language. The overhead of the current prototype implementation is assessed based on two commonly used programming patterns. 
 
 \section{Introduction} \label{introduction}
 
@@ -71,7 +78,7 @@ The LLGO compiler consists of the implementation of the Go runtime and a fronten
 
 \section{Parsing} \label{parsing}
 
-The first change that was required to implement generic functions was to extend the parser to support the new language constructs. The Go standard library contains a module, \texttt{go/parser}, that implements a recursive descent parser for the Go language grammar. The language grammar was designed to be an LL(1) grammar, which means it can be parsed by a recursive descent parser with single element lookahead and no backtracking in linear time. For reasons discussed below, a naive grammar for generic functions would introduce ambiguity to the grammar, and would require a backtracking parser to implement. To avoid an extensive redesign of the existing, non-backtracking, parser, the extensions to the language were constrained to keep the grammar within the requirements of an LL(1) grammar. The consequence of this is that new rules must not introduce ambiguity between productions, and compromises were made to the syntax of the extensions to ensure that minimal changes to existing parsing code were required. The new grammar is backwards compatible with the existing grammar.
+The first change that was required to implement generic functions was to extend the parser to support the new language constructs. The Go standard library contains a module, \texttt{go/parser}, that implements a recursive descent parser for the Go language grammar. The language grammar was designed to be an LL(1) grammar, which means it can be parsed by a recursive descent parser with single element lookahead and no backtracking in linear time. For reasons discussed below, a naive grammar for generic functions would introduce ambiguity, and would require a backtracking parser to implement. To avoid an extensive redesign of the existing, non-backtracking, parser, the extensions to the language were constrained to keep the grammar within the requirements of an LL(1) grammar. The consequence of this is that new rules must not introduce ambiguity between productions, and compromises were made to the syntax of the extensions to ensure that minimal changes to existing parsing code were required. The new grammar is backwards compatible with the existing grammar.
 
 The syntax for generic function definitions and for specifying type parameters at call sites is similar to the generic syntax in Java and C\#. Angled brackets (`\textbf{$<$}' and `\textbf{$>$}') were chosen as delimiters for the type parameter sections in function signatures and calls. The other common delimiters (`\textbf{(}', `\textbf{[}' and `\textbf{\{}') are all part of existing language constructs that are valid after identifiers (function calls, index expressions, and composite literals, respectively) so they could not be used without introducing ambiguity or making more extensive changes to the grammar. Angled brackets also have the advantage of producing less confusion for the programmer, as they are not used as delimiters anywhere else in the grammar. The function type signature, which includes the arguments and return type of a function, was extended to include an optional section for type parameters and their type bounds. This allows type parameters to be included in both function definitions and function literals, as well as function types for fields and parameters.
 
@@ -91,9 +98,9 @@ func foo<A Bound>(x A) A
 \end{verbatim}
 }
 
-In this example, \texttt{A} is the type parameter, \texttt{Bound} is the type bound of \texttt{A}, and \texttt{foo} has type $\texttt{A} \rightarrow \texttt{A}$. Currently, each type parameter has exactly one type bound, which describes the operations that the type parameter must support. Within the body of the function, the type parameters are assumed to implement the interface of the type bound, but are otherwise unknown types. This means that values of type \texttt{A} support the operations defined on interface \texttt{Bound}, but \texttt{A} and \texttt{Bound} are not considered to be identical types. As a consequence, complex types such as slice \footnote{Slices in Go are dynamic lists of variable size that are backed by arrays} types \texttt{[]A} and \texttt{[]Bound} are not assignable to each other.
+In this example, \texttt{A} is the type parameter, \texttt{Bound} is the type bound of \texttt{A}, and \texttt{foo} has type $\texttt{A} \rightarrow \texttt{A}$. Currently, each type parameter has exactly one type bound, which describes the operations that the type parameter must support. Within the body of the function, the type parameters are assumed to implement the interface of the type bound, but are otherwise unknown types. This means that values of type \texttt{A} support the operations defined on interface \texttt{Bound}, but \texttt{A} and \texttt{Bound} are not considered to be identical types. As a consequence, complex types such as slice\footnote{Slices in Go are dynamic lists of variable size that are backed by arrays} types \texttt{[]A} and \texttt{[]Bound} are not assignable to each other.
 
-At the call sites of a generic function, each type parameter is instantiated with a specific concrete type. Instances of the type parameter are substituted with the specific type argument for that call site, and the function call is type checked using the usual rules. If \texttt{S} is a type that implements \texttt{B} and \texttt{val} has type \texttt{S}, then the call expression
+At the call sites of a generic function, each type parameter is instantiated with a specific concrete type. Instances of the type parameter are substituted with the specific type argument for that call site, and the function call is type checked using the usual rules. If \texttt{S} is a type that implements \texttt{Bound} and \texttt{val} has type \texttt{S}, then the call expression
 { \tt \small
 \begin{verbatim}
 foo(<S>, val)
@@ -113,16 +120,16 @@ Go's type system simplifies the implementation of generic functions by removing 
 \begin{itemize}
 \item If \texttt{S} is invariant, there is no additional subtype relationship:
 \begin{mathpar}
-\inferrule*{$$\texttt{A} \in \Gamma$$}{$$\Gamma \vdash \texttt{T<A>} <: \texttt{T<A>}$$}
+\inferrule*{ }{$$\texttt{T<A>} <: \texttt{T<A>}$$}
 \end{mathpar}
 \item If \texttt{S} is covariant:
 \begin{mathpar}
-\inferrule*{$$(\texttt{A} <: \texttt{B}) \in \Gamma$$}{$$\Gamma \vdash \texttt{T<A>} <: \texttt{T<B>}$$}
+\inferrule*{$$\texttt{A} <: \texttt{B}$$}{$$\texttt{T<A>} <: \texttt{T<B>}$$}
 \end{mathpar}
 
 \item If \texttt{S} is contravariant:
 \begin{mathpar}
-\inferrule*{$$(\texttt{B} <: \texttt{A}) \in \Gamma$$}{$$\Gamma \vdash \texttt{T<A>} <: \texttt{T<B>}$$}
+\inferrule*{$$\texttt{B} <: \texttt{A}$$}{$$\texttt{T<A>} <: \texttt{T<B>}$$}
 \end{mathpar}
 \end{itemize}
 
@@ -310,7 +317,7 @@ Since specialization and introspection both have drawbacks, in code size and per
 
 The use of reflection to implement polymorphism does incur a significant runtime cost. Two benchmarks are presented below, with four implementations compared. The first and second implementations are identical, but the first is compiled using the existing LLGO compiler, while the second is compiled with the modified version. Both versions are included to demonstrate that non-generic code is unaffected by the modifications to the language. The first and second implementations are conventional functions that can only operate on a single type and have no polymorphism. The third implementation uses hand-written reflection operations to provide support for polymorphism, but it does not use the generic system. The final implementation uses the generic system. The two benchmarks represent functions that generate different proportions of their code as reflection operations. 
 
-The first benchmark, in Figure \ref{fig:map} is an implementation of a \texttt{map} function, which applies a function to each element in a slice in order to produce a new slice. The \texttt{map} function is a staple of functional programming techniques, and it benefits greatly from the type safety introduced by parametric polymorphism. For the benchmark, the function that is used in the \texttt{map} operation is the factorial function, which is used as a placeholder for any function that performs significant computation on the values within the slice. The \texttt{map} function performs relatively little manipulation of complex parameterized types, as each element is retrieved once from one slice and set once in another. The \texttt{map} function was run on lists of $10,000$ elements ranging from 0 to 20. The hand-written reflection implementation was $3.72$ times slower on average than the conventional version. The generic version was $4.13$ times slower on average than the conventional version, but only $11\%$ slower than the hand-written reflection implementation.
+The first benchmark, in Figure \ref{fig:map}, is an implementation of a \texttt{map} function, which applies a function to each element in a slice in order to produce a new slice. The \texttt{map} function is a staple of functional programming techniques, and it benefits greatly from the type safety introduced by parametric polymorphism. For the benchmark, the function that is used in the \texttt{map} operation is the factorial function, which is used as a placeholder for any function that performs significant computation on the values within the slice. The \texttt{map} function performs relatively little manipulation of complex parameterized types, as each element is retrieved once from one slice and set once in another. The \texttt{map} function was run on lists of $10,000$ elements ranging from 0 to 20. The hand-written reflection implementation was $3.72$ times slower on average than the conventional version. The generic version was $4.13$ times slower on average than the conventional version, but only $11\%$ slower than the hand-written reflection implementation.
 
 \begin{figure}
     \caption{Map Runtime\label{fig:map}}
@@ -318,7 +325,7 @@ The first benchmark, in Figure \ref{fig:map} is an implementation of a \texttt{m
     \input{map.pgf}
 \end{figure}
 
-The second benchmark, in Figure \ref{fig:quicksort} is a naive \texttt{quicksort} function, which sorts an input slice. The \texttt{quicksort} function accepts a predicate as an argument that compares two values, so that collections of arbitrary types may be sorted. The \texttt{quicksort} algorithm is close to a worst case scenario for this generic implementation, because in contrast to \texttt{map}, most of the computational work in the \texttt{quicksort} implementation is directly working with complex parametric types. Each comparison and swap requires index operations to access and set the values within the slice, and each recursive call to \texttt{quicksort} involves creating a new slice using an interval of the input slice. The \texttt{quicksort} function was called with a list of $10,000$ random integers, and a list of $10,000$ random floating point values. The reflection implementation was $18.88$ times slower than the conventional version. The generic implementation was $27.59$ times slower than the conventional version, and $1.46$ times slower than the hand-written reflection implementation.
+The second benchmark, in Figure \ref{fig:quicksort}, is a naive \texttt{quicksort} function, which sorts an input slice. The \texttt{quicksort} function accepts a predicate as an argument that compares two values, so that collections of arbitrary types may be sorted. The \texttt{quicksort} algorithm is close to a worst case scenario for this generic implementation, because in contrast to \texttt{map}, most of the computational work in the \texttt{quicksort} implementation is directly working with complex parametric types. Each comparison and swap requires index operations to access and set the values within the slice, and each recursive call to \texttt{quicksort} involves creating a new slice using an interval of the input slice. The \texttt{quicksort} function was called with a list of $10,000$ random integers, and a list of $10,000$ random floating point values. The reflection implementation was $18.88$ times slower than the conventional version. The generic implementation was $27.59$ times slower than the conventional version, and $1.46$ times slower than the hand-written reflection implementation.
 
 \begin{figure}
     \caption{Quicksort Runtime\label{fig:quicksort}}
@@ -326,9 +333,51 @@ The second benchmark, in Figure \ref{fig:quicksort} is a naive \texttt{quicksort
     \input{quicksort.pgf}
 \end{figure}
 
-Both reflection implementations have additional overhead compared to the conventional version due to the allocations and garbage collection that must be performed to create the intermediate reflection values and operate on them. The hand-written reflection implementation can reduce duplication of reflection operations by reusing values in multiple expressions. The conventional implementation also has the advantage of allowing many operations to be statically allocated, or to use registers. More optimization opportunities are exposed to the compiler in the conventional versions for this reason.
+Both reflection implementations have additional overhead compared to the conventional version due to the allocations that must be performed to create the intermediate reflection values and operate on them. The hand-written reflection implementation can reduce duplication of reflection operations by reusing values in multiple expressions. Profiling data for the hand-written reflection implementation\footnote{Profiling is not currently available for generic functions} in Table \ref{tab:reflect_profile} indicates that most of the additional execution time is spent within the allocation code in the \texttt{reflect} package, particularly when extracting values out of the reflection context after an operation completes.  The conventional implementation also has the advantage of allowing many operations to be statically allocated, or to use registers. More optimization opportunities are exposed to the compiler in the conventional versions for this reason.
 
-These results indicate that the runtime cost associated with generic functions is significant in this implementation. It is not clear what performance gains could be achieved by performing the introspection directly instead of dispatching to the existing reflection system. These results do suggest that generating specialized versions of generic function implementations could provide significant performance improvements, since the specialized functions generated would be closer to the hand-written conventional functions that served as the baseline for these benchmarks. Since the performance of non-generic code is unaffected by the generic system, the programmer can determine if the abstraction provided by generic programming is worth the trade off in speed.
+\begin{table}
+\centering
+% BEGIN RECEIVE ORGTBL sort_reflect_profile
+\begin{tabular}{lrl}
+Time & Time (\%{}) & Function \\
+\hline
+8.83s & 76.92\%{} & main.quicksortReflect \\
+5.09s & 44.34\%{} & reflect.Value.Interface \\
+4.80s & 41.81\%{} & reflect.valueInterface \\
+4.38s & 38.15\%{} & reflect.packEface \\
+3.07s & 26.74\%{} & runtime.newobject \\
+2.91s & 25.35\%{} & reflect.unsafe\_{}New \\
+2.73s & 23.78\%{} & runtime.mallocgc \\
+1.18s & 10.28\%{} & runtime.typedmemmove \\
+1.03s & 8.97\%{} & reflect.typedmemmove \\
+0.85s & 7.40\%{} & reflect.Value.Set \\
+0.80s & 6.97\%{} & runtime.memmove \\
+0.62s & 5.40\%{} & runtime.assertE2T \\
+0.59s & 5.14\%{} & reflect.Value.Index \\
+\end{tabular}
+% END RECEIVE ORGTBL sort_reflect_profile
+\begin{comment}
+#+ORGTBL: SEND sort_reflect_profile orgtbl-to-latex :splice nil :skip 0
+| Time  | Time (%) | Function                |
+|-------+----------+-------------------------|
+| 8.83s |   76.92% | main.quicksortReflect   |
+| 5.09s |   44.34% | reflect.Value.Interface |
+| 4.80s |   41.81% | reflect.valueInterface  |
+| 4.38s |   38.15% | reflect.packEface       |
+| 3.07s |   26.74% | runtime.newobject       |
+| 2.91s |   25.35% | reflect.unsafe_New      |
+| 2.73s |   23.78% | runtime.mallocgc        |
+| 1.18s |   10.28% | runtime.typedmemmove    |
+| 1.03s |    8.97% | reflect.typedmemmove    |
+| 0.85s |    7.40% | reflect.Value.Set       |
+| 0.80s |    6.97% | runtime.memmove         |
+| 0.62s |    5.40% | runtime.assertE2T       |
+| 0.59s |    5.14% | reflect.Value.Index     |
+\end{comment}
+\caption{Cumulative runtime of functions in the hand-written implementation of \texttt{quicksort}. Only functions called from within the sorting code and that account for at least 5\% of the total runtime are included. The \texttt{runtime/pprof} package of the Go standard library was used to collect performance data.}\label{tab:reflect_profile}
+\end{table}
+
+These results indicate that the runtime cost associated with generic functions is significant in this implementation. Performing the introspection directly instead of dispatching to the existing reflection system could produce performance gains by avoiding the allocation of intermediate objects. These results also suggest that generating specialized versions of generic function implementations could provide significant performance improvements, as the specialized functions generated would be closer to the hand-written conventional functions that served as the baseline for these benchmarks. Since the performance of non-generic code is unaffected by the generic system, the programmer can determine if the abstraction provided by generic programming is worth the trade off in speed.
 
 \section{Conclusion and Future Work} \label{conclusion}
 
@@ -341,6 +390,8 @@ The runtime costs incurred by this implementation of generic functions are signi
 A complete implementation of parametric polymorphism will need to contain mechanisms for generic interfaces and structs. Generic functions are a necessary first step to implementing these other generic constructs, as both interfaces and structs are largely defined by their member functions. The principles used in parsing and type checking generic functions are extendable to the other language constructs, and some parts of the implementation may be reused.
 
 Finally, if a complete, performant generic type implementation is developed it will need to be implemented in the major Go compilers, GC and GCCGo. The LLGO compiler is useful in developing the prototype system and for more rapid development of alternative implementations for performance comparisons, but the main Go compilers are what define the language in practice.
+
+The source code for the modified version of the LLGO compiler can be found at \url{https://github.com/Matt343/llgo}.
 
 {\footnotesize \bibliographystyle{acm}
   \bibliography{thesis}

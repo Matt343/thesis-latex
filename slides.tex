@@ -1,0 +1,1088 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Beamer Presentation
+% LaTeX Template
+% Version 1.0 (10/11/12)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND THEMES
+%----------------------------------------------------------------------------------------
+
+\documentclass[12pt]{beamer}
+
+\mode<presentation> {
+
+% The Beamer class comes with a number of default slide themes
+% which change the colors and layouts of slides. Below this is a list
+% of all the themes, uncomment each in turn to see what they look like.
+
+%\usetheme{default}
+%\usetheme{AnnArbor}
+%\usetheme{Antibes}
+%\usetheme{Bergen}
+%\usetheme{Berkeley}
+%\usetheme{Berlin}
+%\usetheme{Boadilla}
+%\usetheme{CambridgeUS}
+%\usetheme{Copenhagen}
+%\usetheme{Darmstadt}
+% \usetheme{Dresden}
+%\usetheme{Frankfurt}
+%\usetheme{Goettingen}
+%\usetheme{Hannover}
+%\usetheme{Ilmenau}
+%\usetheme{JuanLesPins}
+%\usetheme{Luebeck}
+\usetheme{Madrid}
+%\usetheme{Malmoe}
+%\usetheme{Marburg}
+%\usetheme{Montpellier}
+%\usetheme{PaloAlto}
+% \usetheme{Pittsburgh}
+% \usetheme{Rochester}
+%\usetheme{Singapore}
+%\usetheme{Szeged}
+%\usetheme{Warsaw}
+
+% As well as themes, the Beamer class has a number of color themes
+% for any slide theme. Uncomment each of these in turn to see how it
+% changes the colors of your current slide theme.
+
+%\usecolortheme{albatross}
+% \usecolortheme{beaver}
+% \usecolortheme{beetle}
+% \usecolortheme{crane}
+% \usecolortheme{dolphin}
+% \usecolortheme{dove}
+% \usecolortheme{fly}
+% \usecolortheme{lily}
+% \usecolortheme{orchid}
+% \usecolortheme{rose}
+% \usecolortheme{seagull}
+% \usecolortheme{seahorse}
+% \usecolortheme{whale}
+% \usecolortheme{wolverine}
+
+%\setbeamertemplate{footline} % To remove the footer line in all slides uncomment this line
+% \setbeamertemplate{footline}[page number] % To replace the footer line in all slides with a simple slide count uncomment this line
+
+\setbeamertemplate{navigation symbols}{} % To remove the navigation symbols from the bottom of all slides uncomment this line
+}
+
+\usepackage{graphicx} % Allows including images
+\usepackage{booktabs} % Allows the use of \toprule, \midrule and \bottomrule in tables
+% \usepackage{geometry}
+% \geometry{lmargin=40pts}
+\usepackage{fancyvrb}
+\usepackage{fancybox}
+\usepackage{forest}
+\usepackage{multicol}
+
+% \usepackage{enumitem}
+% % \setlist[itemize]{itemsep=3pt} % or \setlist{noitemsep} to leave space around whole list
+% \setlist[itemize,1]{label=$\triangleright$}
+% \setlist{leftmargin=10pt}
+% \setlist[1]{labelindent=\parindent} % Only the level 1
+
+%----------------------------------------------------------------------------------------
+%	TITLE PAGE
+%----------------------------------------------------------------------------------------
+
+\title[Parametric Polymorphism in Go]{Parametric Polymorphism in the Go Programming Language} % The short title appears at the bottom of every slide, the full title is only on the title page
+
+\author{Matthew Allen} % Your name
+\institute[University of Texas] % Your institution as it will appear on the bottom of every slide, may be shorthand to save space
+{
+University of Texas at Austin \\ % Your institution for the title page
+Supervisor: Jan S. Rellermeyer
+}
+\date{\today} % Date, can be changed to a custom date
+
+\begin{document}
+
+\definecolor{codeBlue}{rgb}{0.0, 0.0, 0.478}
+\newcommand{\codestyle}[1]{\texttt{\color{codeBlue}#1}}
+\makeatletter
+\renewcommand\verbatim@font{\color{codeBlue}\normalfont\ttfamily}
+\makeatletter
+
+\begin{frame}
+\titlepage % Print the title page as the first slide
+\end{frame}
+
+% \begin{frame}
+% \frametitle{Overview} % Table of contents slide, comment this block out to remove it
+% \tableofcontents % Throughout your presentation, if you choose to use \section{} and \subsection{} commands, these will automatically be printed on this slide as an overview of your presentation
+% \end{frame}
+
+%----------------------------------------------------------------------------------------
+%	PRESENTATION SLIDES
+%----------------------------------------------------------------------------------------
+
+%------------------------------------------------
+\section{Overview of Go} % Sections can be created in order to organize your presentation into discrete blocks, all sections and subsections are automatically printed in the table of contents as an overview of the talk
+%------------------------------------------------
+
+% \begin{frame}
+% \frametitle{Paragraphs of Text}
+% Sed iaculis dapibus gravida. Morbi sed tortor erat, nec interdum arcu. Sed id lorem lectus. Quisque viverra augue id sem ornare non aliquam nibh tristique. Aenean in ligula nisl. Nulla sed tellus ipsum. Donec vestibulum ligula non lorem vulputate fermentum accumsan neque mollis.\\~\\
+
+% Sed diam enim, sagittis nec condimentum sit amet, ullamcorper sit amet libero. Aliquam vel dui orci, a porta odio. Nullam id suscipit ipsum. Aenean lobortis commodo sem, ut commodo leo gravida vitae. Pellentesque vehicula ante iaculis arcu pretium rutrum eget sit amet purus. Integer ornare nulla quis neque ultrices lobortis. Vestibulum ultrices tincidunt libero, quis commodo erat ullamcorper id.
+% \end{frame}
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Overview of Work}
+\begin{itemize}
+\item Add generic functions to Go's grammar and type system
+\item Implement one code generation strategy
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Overview of Results}
+\begin{itemize}
+\item The language extensions were successful
+\item The implementation is too slow to be practical
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Introduction to Go}
+\begin{itemize}
+\item Compiled
+\item Statically typed
+\item Focused on simplicity
+\item Parallelism through CSP, first class channels, goroutines
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Variables}
+\begin{itemize}
+\item Types follow names
+\begin{verbatim}
+var x int = 1
+\end{verbatim}
+\item Types can be inferred
+\begin{verbatim}
+x := 1
+\end{verbatim}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Structs}
+\begin{itemize}
+\item Fields like variables, name then type
+\begin{verbatim}
+type Person struct {
+    Name string
+}
+\end{verbatim}
+\item Embedded structs for composition
+\begin{verbatim}
+type Job struct {
+    Command string
+    *log.Logger
+}
+\end{verbatim}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Functions}
+\begin{itemize}
+\item Return type at the end
+\begin{verbatim}
+func Add(x, y int) int { ... } 
+\end{verbatim}
+\item Receiver at the beginning for methods
+\begin{verbatim}
+func (*Reader) Read() string { ... } 
+\end{verbatim}
+\item Multiple return types allowed, can be named
+\begin{verbatim}
+func Open(name string) (file File, error) { ... } 
+\end{verbatim}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Interfaces}
+\begin{itemize}
+\item List of functions
+\begin{verbatim}
+type Reader {
+    Read() string
+    ReadAll() []string
+}
+\end{verbatim}
+\item Structural types
+  \begin{itemize}
+  \item Any type with those functions implements the interface
+  \item No declaration required to implement an interface
+  \end{itemize}
+\item Every type implements the empty interface (\codestyle{interface\{\}})
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Other Types}
+\begin{itemize}
+\item Primitives: \codestyle{int, float, string}
+\item Array - fixed length: \codestyle{[5]int}
+\item Slice - dynamic array: \codestyle{[]int}
+\item Map - hash map: \codestyle{map[string]int}
+\item Chan - channel, can be one direction: \\\codestyle{chan int, <-chan float, chan<- string}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+\section{Generic Code in Go}
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Writing Reusable Code}
+\begin{itemize}
+\item No way to write generic algorithms or data structures
+\item Either write specialized versions or lose type safety
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Specialized Versions}
+\begin{verbatim}
+func sortInt(in []int) []int { ... }
+func sortFloat(in []float) []float { ... }
+...
+\end{verbatim}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Use Interfaces}
+\begin{itemize}
+\item Use an interface in the signature, then cast:
+\begin{verbatim}
+func Foo(in Abstact) Abstract { ... }
+var x Concrete
+y := Foo(x).(Concrete)
+\end{verbatim}
+\item Doesn't work with complex types
+\begin{verbatim}
+func Bar(in []Abstract) []Abstract { ... }
+var xs []Concrete
+ys := Bar(xs).([]Concrete) // error
+\end{verbatim}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Workaround for Complex Types}
+\begin{itemize}
+\item Use the empty interface in the signature
+\begin{verbatim}
+func Bar(in interface{}) interface{} { ... }
+var xs []Concrete
+ys := Bar(xs).([]Concrete)
+\end{verbatim}
+\item Use reflection inside the function
+\begin{verbatim}
+func Bar(in interface{}) interface{} {
+    input := reflect.ValueOf(in)
+    ...
+}
+\end{verbatim}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Problems}
+\begin{itemize}
+\item Multiple functions
+  \begin{itemize}
+  \item Must keep copies in sync
+  \item Pollutes API
+  \item Copy and paste errors
+  \end{itemize}
+\item Single function
+  \begin{itemize}
+  \item Lose type safety
+  \item Reflection is difficult to use
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Solutions in Other Languages}
+\begin{itemize}
+\item Dynamic type system (Python, Ruby, etc.)
+\item Parametric Polymorphism
+  \begin{itemize}
+  \item Generics (Java, C\#, Scala)
+  \item Templates (C++)
+  \item Parameterized types/functions (Haskell)
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+\section{Compiler Extension}
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Language Extension}
+\begin{itemize}
+\item Add generic functions to Go
+\item Extend the compiler to support them
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Goal for Language Extension}
+
+\begin{verbatim}
+func sort<T>(in []T) []T { ... }
+\end{verbatim}
+
+\begin{verbatim}
+func Bar<T Abstract>(in []T) []T { ... }
+var xs []Concrete
+ys := Bar(xs)
+\end{verbatim}
+
+\codestyle{ys} should have type \codestyle{[]Concrete}
+
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Go Compiler}
+\begin{itemize}
+\item Using the LLGO compiler
+\item Go standard library for the frontend
+\item LLVM for the backend
+\item Separation of frontend components (parser, type checker)
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Compiler Structure}
+\begin{itemize}
+\item Lexer
+\item Parser
+\item Type checker
+\item Code generation
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+\subsection{Parser}
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Parser}
+\begin{itemize}
+\item Recursive descent parser
+\item Grammar has no ambiguity, so no backtracking
+\item Single element lookahead
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Parsing an expression}
+\begin{itemize}
+\item Input string
+\begin{verbatim}
+(a + b) * c
+\end{verbatim}
+\item Tokenized
+\begin{verbatim}
+"(", "a", "+", "b", ")", "*", "c"
+\end{verbatim}
+\item Parsing
+
+\codestyle{Expression,} \doublebox{\codestyle{"+"}}, \fbox{\codestyle{"b"}}, \codestyle{...}
+
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Abstract Syntax Tree (AST)}
+\begin{forest}
+for tree={
+  parent anchor=south,
+  child anchor=north,
+  if n children=0{
+    font=\ttfamily
+  }{},
+  if level=0{
+    minimum width=\linewidth,
+    inner xsep=0pt,
+    outer xsep=0pt,
+  }{},
+}
+[BinaryExpression
+  [ParenExpression
+    [BinaryExpression
+      [Identifier
+        [a]
+      ]
+      [+]
+      [Identifier
+        [b]
+      ]
+    ]
+  ]
+  [*]
+  [Identifier
+    [c]
+  ]
+]
+\end{forest}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Extending the Grammar}
+\begin{itemize}
+\item Need grammar rules for new language constructs
+\item Function definitions/calls need type parameter sections
+\item Update the parser to match the new grammar
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Extending the Grammar}
+\begin{itemize}
+\item Use ``\codestyle{<}'' and ``\codestyle{>}'' for delimiters for type parameter sections
+\item Add type parameter sections to function types and calls
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{New Language Constructs}
+\begin{itemize}
+\item Function definitions with type parameter section
+\begin{verbatim}
+func Foo<A Bound, B Bound>(arg1 A, arg2 []B) B
+\end{verbatim}
+\item Function calls with type arguments
+\begin{verbatim}
+Foo(<int, string>, x, y)
+\end{verbatim}
+\item Type arguments are inside the argument list to remove ambiguity
+% \item Need to differentiate comparison from type arguments\\
+% \codestyle{a < b} \quad vs \quad \codestyle{a<b>(arg)}
+
+% \item When parsing, both look like
+% \begin{verbatim}
+% Expression("a"), "<", ...
+% \end{verbatim}
+% \item Without backtracking, the parser needs to be able to pick correctly every time
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+% \begin{frame}[fragile]
+% \frametitle{Call Site Ambiguity - Workaround}
+% \begin{itemize}
+% \item Place the type parameters inside the argument list
+% \begin{verbatim}
+% a(<b>, arg)
+% \end{verbatim}
+% \item Every call expression looks like
+% \begin{verbatim}
+% Expression, "(", ...
+% \end{verbatim}
+% \end{itemize}
+% \end{frame}
+
+% %------------------------------------------------
+
+% \begin{frame}[fragile]
+% \frametitle{Lexing Problem}
+% \begin{itemize}
+% \item The lexer tokenizes ``\codestyle{>>}'' as one token
+% \item Nested parameter lists like \, \codestyle{a(<b<c>>)}
+% \item Tokenized as:
+
+
+% \begin{verbatim}
+% "a", "(", "<", "b", "<", "c", ">>", ")"
+% \end{verbatim}
+% \end{itemize}
+% \end{frame}
+
+%------------------------------------------------
+\subsection{Type Checking}
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Type Checker}
+\begin{itemize}
+\item Depth-first traversal of the AST
+\item Assign types to each node
+\item Build up types for complex expressions
+\item Type check statements in order, keeping track of scopes
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Type Checking Generic Function Definitions}
+\begin{itemize}
+\item Add type parameters to functions
+\begin{verbatim}
+func Concat<T>(in1, in2 []T) []T { ... }
+\end{verbatim}
+\item Type bounds constrain the parameter types
+\begin{verbatim}
+func Clone<T Cloneable>(in T) T { ... }
+\end{verbatim}
+\item In the function body, type parameters act like their bounds
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Type Checking Generic Function Calls}
+\begin{itemize}
+\item At the call site, a specific type is substituted for the parameters
+\begin{verbatim}
+var x Foo
+y := Clone(<Foo>, x)
+\end{verbatim}
+\item \codestyle{y} has type \codestyle{Foo}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Type Inference}
+\begin{itemize}
+\item Type arguments can be inferred using the types of the arguments
+\item Similar to pattern matching for complex types:
+  \begin{itemize}
+  \item \codestyle{A} and \codestyle{B} are a type parameter
+  \item A parameter has type \codestyle{map[A][]B}
+  \item The supplied argument has type \codestyle{map[string][]int}
+  \item \codestyle{A} is inferred to \codestyle{string}
+  \item \codestyle{B} is inferred to \codestyle{int}
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+\subsection{Code Generation}
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Code Generation}
+\begin{itemize}
+\item Translate the AST into single static assignment (SSA) form
+\item Translate the SSA into LLVM intermediate representation
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Problems with Generic Code}
+Code that uses complex types with type parameters will be incorrect for substituted types
+\begin{itemize}
+\item Let \codestyle{A} be a type parameter and \codestyle{s} have type \codestyle{[]A}
+\item The expression \codestyle{s[i]} is in the function body
+\item If \codestyle{B} is substituted for \codestyle{A} at the call site, then \codestyle{s} actually has type \codestyle{[]B}
+\item The code in the function body is incorrect for this type
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Generic Code Generation}
+Options for generating generic code
+\begin{itemize}
+\item Duplicate generic code for each set of type parameters
+\item Generate code that is independent of the parameter types
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Generic Code Generation}
+Options for generating generic code
+\begin{itemize}
+\item Duplicate generic code for each set of type parameters
+  \begin{itemize}
+  \item Increased code size
+  \item Iterative process to generate all needed specializations
+  \item C++, Rust
+  \end{itemize}
+\item Generate code that is independent of the parameter types
+  \begin{itemize}
+  \item General code is slower, less optimization opportunities
+  \item More dynamic allocations
+  \item Java, C\#
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Code Generation Strategy}
+\begin{itemize}
+\item Generate a single version of each function
+\item Transform the AST after type checking
+\item Run the type checker again on the new AST
+\item Use the standard Go code generation system
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{AST Transformation}
+\begin{itemize}
+\item Depth first traversal of the AST
+\item A function is called that performs the transformation
+\item The new nodes replace the old ones in the AST
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{AST Transformation}
+\begin{forest}
+for tree={
+  parent anchor=south,
+  child anchor=north,
+  font=\ttfamily,
+  if level=0{
+    minimum width=\linewidth,
+    inner xsep=0pt,
+    outer xsep=0pt,
+  }{},
+}
+[A
+  [B
+    [C]
+    [D]
+  ]
+  [E]
+]
+\end{forest}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{AST Transformation}
+\begin{forest}
+for tree={
+  parent anchor=south,
+  child anchor=north,
+  font=\ttfamily,
+  if level=0{
+    minimum width=\linewidth,
+    inner xsep=0pt,
+    outer xsep=0pt,
+  }{},
+}
+[A
+  [B
+    [f(C)]
+    [f(D)]
+  ]
+  [E]
+]
+\end{forest}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{AST Transformation}
+\begin{forest}
+for tree={
+  parent anchor=south,
+  child anchor=north,
+  font=\ttfamily,
+  if level=0{
+    minimum width=\linewidth,
+    inner xsep=0pt,
+    outer xsep=0pt,
+  }{},
+}
+[A
+  [f(B$'$)
+    [f(B)
+      [f(C)]
+      [f(D)]
+    ]
+  ]
+  [f(E)]
+]
+\end{forest}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{AST Transformation}
+\begin{forest}
+for tree={
+  parent anchor=south,
+  child anchor=north,
+  font=\ttfamily,
+  if level=0{
+    minimum width=\linewidth,
+    inner xsep=0pt,
+    outer xsep=0pt,
+  }{},
+}
+[f(A)
+  [f(B$'$)
+    [f(B)
+      [f(C)]
+      [f(D)]
+    ]
+  ]
+  [f(E)]
+]
+\end{forest}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Reflection}
+\begin{itemize}
+\item The \codestyle{reflect} library can handle our problem expressions
+\item Complex types with type parameters become \codestyle{interface\{\}}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Reflection}
+The \codestyle{reflect} library has analogues for:
+\begin{itemize}
+\item Indexing arrays, slices, and maps
+\item Assignment to array, slice, and map indices
+\item Dereferencing and assignment to pointers
+\item Builtin functions
+\item etc.
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Reflection Example}
+For the expression \codestyle{s[i]}, where \codestyle{s} has type \codestyle{[]A}:
+\begin{itemize}
+\item \codestyle{s} now has type \codestyle{interface\{\}}
+\item The new expression is
+\begin{verbatim}
+reflect.ValueOf(s).Index(i).Interface()
+\end{verbatim}
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+\section{Performance}
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Performance}
+Reflection has a runtime cost
+\begin{itemize}
+\item Extra dynamic allocations
+\item Less optimizations available
+\item Extra function calls
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Benchmarks}
+\begin{itemize}
+\item Map: applies a function to every element of a slice
+\item Quicksort: sorts a slice
+\item Both generic in the type of the slices
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Map Results}
+\begin{figure}
+    \centering
+    \input{mapBig.pgf}
+\end{figure}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Map Results}
+\begin{itemize}
+\item Reflection: $3.72$ times slower than Conventional
+\item Generic: $4.13$ times slower than Conventional
+\item Generic: $1.11$ times slower than Reflection
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Quicksort Results}
+\begin{figure}
+    \centering
+    \input{quicksortBig.pgf}
+\end{figure}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Map Results}
+\begin{itemize}
+\item Reflection: $18.88$ times slower than Conventional
+\item Generic: $27.59$ times slower than Conventional
+\item Generic: $1.46$ times slower than Reflection
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Performance of Reflection}
+\centering
+\begin{table}
+\begin{tabular}{lrl}
+Time & Time (\%{}) & Function \\
+\hline
+8.83s & 76.92\%{} & main.quicksort \\
+5.09s & 44.34\%{} & reflect.Value.Interface \\
+4.80s & 41.81\%{} & reflect.valueInterface \\
+4.38s & 38.15\%{} & reflect.packEface \\
+3.07s & 26.74\%{} & runtime.newobject \\
+2.91s & 25.35\%{} & reflect.unsafe\_{}New \\
+2.73s & 23.78\%{} & runtime.mallocgc \\
+1.18s & 10.28\%{} & runtime.typedmemmove \\
+1.03s & 8.97\%{} & reflect.typedmemmove \\
+0.85s & 7.40\%{} & reflect.Value.Set \\
+0.80s & 6.97\%{} & runtime.memmove \\
+0.62s & 5.40\%{} & runtime.assertE2T \\
+0.59s & 5.14\%{} & reflect.Value.Index \\
+\end{tabular}
+\end{table}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Conclusion}
+\begin{itemize}
+\item Generics are compatible with Go design goals
+\item Generic functions fit into the current language
+\item Using one version of a function for all type parameters is too slow
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}[fragile]
+\frametitle{Future Work}
+\begin{itemize}
+\item Add support for generic structs and interfaces
+\item Change the code generation to create specialized versions
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+% \begin{frame}
+% \frametitle{Blocks of Highlighted Text}
+% \begin{block}{Block 1}
+% Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer lectus nisl, ultricies in feugiat rutrum, porttitor sit amet augue. Aliquam ut tortor mauris. Sed volutpat ante purus, quis accumsan dolor.
+% \end{block}
+
+% \begin{block}{Block 2}
+% Pellentesque sed tellus purus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Vestibulum quis magna at risus dictum tempor eu vitae velit.
+% \end{block}
+
+% \begin{block}{Block 3}
+% Suspendisse tincidunt sagittis gravida. Curabitur condimentum, enim sed venenatis rutrum, ipsum neque consectetur orci, sed blandit justo nisi ac lacus.
+% \end{block}
+% \end{frame}
+
+% %------------------------------------------------
+
+% \begin{frame}
+% \frametitle{Multiple Columns}
+% \begin{columns}[c] % The "c" option specifies centered vertical alignment while the "t" option is used for top vertical alignment
+
+% \column{.45\textwidth} % Left column and width
+% \textbf{Heading}
+% \begin{enumerate}
+% \item Statement
+% \item Explanation
+% \item Example
+% \end{enumerate}
+
+% % \column{.5\textwidth} % Right column and width
+% Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer lectus nisl, ultricies in feugiat rutrum, porttitor sit amet augue. Aliquam ut tortor mauris. Sed volutpat ante purus, quis accumsan dolor.
+
+% \end{columns}
+% \end{frame}
+
+% %------------------------------------------------
+% \section{Second Section}
+% %------------------------------------------------
+
+% \begin{frame}
+% \frametitle{Table}
+% \begin{table}
+% \begin{tabular}{l l l}
+% \toprule
+% \textbf{Treatments} & \textbf{Response 1} & \textbf{Response 2}\\
+% \midrule
+% Treatment 1 & 0.0003262 & 0.562 \\
+% Treatment 2 & 0.0015681 & 0.910 \\
+% Treatment 3 & 0.0009271 & 0.296 \\
+% \bottomrule
+% \end{tabular}
+% \caption{Table caption}
+% \end{table}
+% \end{frame}
+
+% %------------------------------------------------
+
+% \begin{frame}
+% \frametitle{Theorem}
+% \begin{theorem}[Mass--energy equivalence]
+% $E = mc^2$
+% \end{theorem}
+% \end{frame}
+
+% %------------------------------------------------
+
+% % \begin{frame}[fragile] % Need to use the fragile option when verbatim is used in the slide
+% % \frametitle{Verbatim}
+% % \begin{example}[Theorem Slide Code]
+% % \begin{verbatim}\begin{frame}
+% % \frametitle{Theorem}
+% % \begin{theorem}[Mass--energy equivalence]
+% % $E = mc^2$
+% % \end{theorem}
+% % \end{frame}\end{verbatim}
+
+% % \end{example}
+% % \end{frame}
+
+% %------------------------------------------------
+
+% \begin{frame}
+% \frametitle{Figure}
+% Uncomment the code on this slide to include your own image from the same directory as the template .TeX file.
+% %\begin{figure}
+% %\includegraphics[width=0.8\linewidth]{test}
+% %\end{figure}
+% \end{frame}
+
+% %------------------------------------------------
+
+% \begin{frame}[fragile] % Need to use the fragile option when verbatim is used in the slide
+% \frametitle{Citation}
+% An example of the \verb|\cite| command to cite within the presentation:\\~
+
+% This statement requires citation \cite{p1}.
+% \end{frame}
+
+% %------------------------------------------------
+
+% \begin{frame}
+% \frametitle{References}
+% \footnotesize{
+% \begin{thebibliography}{99} % Beamer does not support BibTeX so references must be inserted manually as below
+% \bibitem[Smith, 2012]{p1} John Smith (2012)
+% \newblock Title of the publication
+% \newblock \emph{Journal Name} 12(3), 45 -- 678.
+% \end{thebibliography}
+% }
+% \end{frame}
+
+% %------------------------------------------------
+
+% \begin{frame}
+% \Huge{\centerline{The End}}
+% \end{frame}
+
+% %----------------------------------------------------------------------------------------
+
+\end{document} 
+
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
