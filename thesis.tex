@@ -25,26 +25,23 @@
 
 \begin{document}
 
-% don't want date printed
-\date{}
+\begin{titlepage}
+	\centering
+	{\scshape\LARGE University of Texas \par}
+	\vspace{1cm}
+	{\scshape\Large Turing Scholars honors thesis\par}
+	\vspace{1.5cm}
+	{\huge\bfseries Parametric Polymorphism in the Go Programming Language\par}
+	\vspace{2cm}
+	{\Large\itshape Matthew Allen\par}
+	\vfill
+	Dr.~Jan S. Rellermeyer -- Faculty adviser
 
-% make title bold and 14 pt font (Latex default is non-bold, 16 pt)
-\title{\Large \bf Parametric Polymorphism in the Go Programming Language}
+	\vfill
 
-\author[1]{Matthew Allen}
-\author[1,2]{Jan S. Rellermeyer}
-\affil[1]{University of Texas at Austin}
-\affil[2]{IBM Research}
-\renewcommand\Authands{ and }
-
-% \author{
-%   {\rm Matthew Allen}\\
-%   University of Texas
-%   \and
-%   {\rm Jan S. Rellermeyer}
-% }
-
-\maketitle
+% Bottom of the page
+	{\large \today\par}
+\end{titlepage}
 
 % Use the following at camera-ready time to suppress page numbers.
 % Comment it out when you first submit the paper for review.
@@ -58,13 +55,22 @@ An extension to the Go language was developed that introduces parametric polymor
 
 Statically checked, typed-safe languages offer the programmer the ability to reason about the kinds of data that a program operates on and ensure that only valid data is used to perform calculations. When using a language with a static type system, there are guarantees of correctness that are offered, and type errors can be detected at compile time rather than at run time \cite{milner1978theory}. As with any form of static analysis, compile time type checking cannot account for all runtime behavior of the program, and so it must be conservative in rejecting potentially valid programs to ensure that type errors cannot occur. If a language implements a limited static type system without support for high level abstraction, the restrictions of the type system can prevent the programmer from writing abstract or general code. In this case, the type system inhibits programmers who use higher level abstraction, rather than assisting them. By adding more power to the type system, the language can become more expressive and the type system can become less of a burden on the programmer. Parametric polymorphism is a common feature of static type systems that allows functions or data structures to be written generically, so that they can operate on values of many types while still maintaining static type safety \cite{cardelli1987basic}. Generic functions and data structures have type parameters which are substituted for specific types when the function or data structure is used. These type parameters may be bounded, so that only a certain class of types can be used for a type parameter, which allows the generic construct to use some of the common features of its parameterized types.
 
+The generic function implementation described allows for more expressive implementation of common programming practices. One example of a use case for generic functions supported by this implementation is writing functions that deal with collections without interacting with the element type. Using the generic function system, a sort function could be written as follows:
+
+{ \tt \small
+\begin{verbatim}
+func sort<T Comparable>(in []T) []T { ... }
+\end{verbatim}
+}
+Here the \texttt{sort} function operates on lists of comparable elements without relying on any specific element type.
+
 \section{Motivation} \label{motivation}
 
 The Go programming language features a static type system, but the semantics of the type system are limited \cite{gospec}. Without a way to use parametric polymorphism, it is impossible to write statically type checked functions that can be reused for multiple similar types. This leads programmers to either duplicate code many times to create separate, specialized versions of otherwise identical functions, or to bypass the static type system using casting and reflection \cite{gofaq}.  This paper outlines an extension to the Go language that includes generic functions that are statically checked and transformed into standard Go code at compile time.
 
-The design goals for the Go language include clear semantics and ease of use, as well as runtime performance and concurrency support \cite{godesign}. The proposed extension to the language introduces additional complexity to the type system, but given the prevalence of parametric polymorphism in statically typed languages and the relative simplicity of this generic system, the type system is still understandable enough to satisfy the ease of use goal. The generic function implementation is also backwards compatible with existing Go syntax and semantics, so it is not necessary to update existing code to use the generic system. Runtime performance is an important consideration for the language extension, and is discussed in Section \ref{results}. The goal of this initial implementation is to serve as a proof of concept for the proposed type system extension, so performance was a secondary concern for this implementation.
+The design goals for the Go language include clear semantics and ease of use, as well as runtime performance and concurrency support \cite{godesign}. The proposed extension to the language introduces additional complexity to the type system, but given the prevalence of parametric polymorphism in statically typed languages and the relative simplicity of this generic system, the type system is still understandable enough to satisfy the ease of use goal. The generic function implementation is also backwards compatible with existing Go syntax and semantics, so it is not necessary to update existing code to use the generic system. Runtime performance is an important consideration for the language extension, and is discussed in Section \ref{results}. The goal of this initial implementation is to serve as a proof of concept for the proposed type system extension, so performance was a secondary concern for the first version.
 
-Since Go is a compiled language, changes to the language specification must be accomplished by changing the compiler(s) that implement the language. The new language constructs necessary to implement generic functions require changes to the grammar that defines valid Go programs. Because of this, the parser for the language must be updated, and new node types must be added to the abstract syntax tree (AST) of the language. These changes to the parser are outlined in section \ref{parsing}. Once the compiler can parse the new language constructs, the type checking system must be updated with the new type rules. These changes to the type checking system in the compiler are detailed in section \ref{type_checking}. Section \ref{code_generation} explains the changes needed to generate generic code correctly, as well as the trade offs for different code generation strategies. 
+Since Go is a compiled language, changes to the language specification must be accomplished by changing the compiler(s) that implement the language. The new language constructs necessary to implement generic functions require changes to the grammar that defines valid Go programs. Because of this, the parser for the language must be updated, and new node types must be added to the abstract syntax tree (AST) of the language. These changes to the parser are outlined in section \ref{parsing}. Once the compiler can parse the new language constructs, the type checking system must be updated with the new type rules. These changes to the type checking system in the compiler are detailed in section \ref{typechecking}. Section \ref{codegeneration} explains the changes needed to generate generic code correctly, as well as the trade offs for different code generation strategies. 
 
 \section{Compiler Architecture} \label{architecture}
 
@@ -78,7 +84,7 @@ The LLGO compiler consists of the implementation of the Go runtime and a fronten
 
 \section{Parsing} \label{parsing}
 
-The first change that was required to implement generic functions was to extend the parser to support the new language constructs. The Go standard library contains a module, \texttt{go/parser}, that implements a recursive descent parser for the Go language grammar. The language grammar was designed to be an LL(1) grammar, which means it can be parsed by a recursive descent parser with single element lookahead and no backtracking in linear time. For reasons discussed below, a naive grammar for generic functions would introduce ambiguity, and would require a backtracking parser to implement. To avoid an extensive redesign of the existing, non-backtracking, parser, the extensions to the language were constrained to keep the grammar within the requirements of an LL(1) grammar. The consequence of this is that new rules must not introduce ambiguity between productions, and compromises were made to the syntax of the extensions to ensure that minimal changes to existing parsing code were required. The new grammar is backwards compatible with the existing grammar.
+The first change that was required to implement generic functions was to extend the parser to support the new language constructs. The Go standard library contains a module, \texttt{go/parser}, that implements a parser for the Go language grammar. The grammar was designed to avoid ambiguity, and the parser is a recursive descent parser with single element lookahead and no backtracking. For reasons discussed below, a naive grammar for generic functions would introduce ambiguity, and would require a backtracking parser to implement. To avoid an extensive redesign of the existing parser, the extensions to the language were constrained to keep the grammar within the requirements of a non-backtracking parser. The consequence of this is that new rules must not introduce ambiguity between productions, and compromises were made to the syntax of the extensions to ensure that minimal changes to existing parsing code were required. The new grammar is backwards compatible with the existing grammar. The complete modified grammar can be found in Appendix \ref{App:grammar}.
 
 The syntax for generic function definitions and for specifying type parameters at call sites is similar to the generic syntax in Java and C\#. Angled brackets (`\textbf{$<$}' and `\textbf{$>$}') were chosen as delimiters for the type parameter sections in function signatures and calls. The other common delimiters (`\textbf{(}', `\textbf{[}' and `\textbf{\{}') are all part of existing language constructs that are valid after identifiers (function calls, index expressions, and composite literals, respectively) so they could not be used without introducing ambiguity or making more extensive changes to the grammar. Angled brackets also have the advantage of producing less confusion for the programmer, as they are not used as delimiters anywhere else in the grammar. The function type signature, which includes the arguments and return type of a function, was extended to include an optional section for type parameters and their type bounds. This allows type parameters to be included in both function definitions and function literals, as well as function types for fields and parameters.
 
@@ -145,7 +151,7 @@ The most involved changes to the compiler were required to generate the correct 
 
 A process of AST transformation is used to translate the input AST into a standard Go AST with no generic functionality. This AST transformation is implemented as a depth-first traversal of the AST, with each node being transformed by a function into its standard form. In this way, complex expressions are translated by first transforming their parts, and then performing any additional modifications needed to combine the simple expressions into the complex one.
 
-For statements, additional bookkeeping must be done to accommodate transformations that turn one statement into several statements. For instance, this is necessary when dealing with functions with multiple return values. Multiple return values are only accessible through a multi-part assignment statement, so any transformations that need to be made to the individual return values must be made in a separate statement. For example, consider a function \texttt{foo} that returns two values, where we would like to apply a function \texttt{f} to each value:
+For statements, additional bookkeeping must be done to accommodate transformations that turn one statement into several statements. For instance, this is necessary when dealing with functions with multiple return values. Multiple return values are only accessible through a multi-part assignment statement, so any transformations that need to be made to the individual return values must be made in a separate statement. For example, consider a function \texttt{foo} that returns two values, where the AST transformation is represented by a function \texttt{f}:
 { \tt \small
 \begin{verbatim}
 a, b := foo()
@@ -176,18 +182,14 @@ if a, b := f(a), f(b); a != b { ... }
 If, instead, the assignment statement occurred as the update statement of a \texttt{for} loop:
 { \tt \small
 \begin{verbatim}
-for a, b := 0, 0;
- a == b;
- a, b = foo() { ... }
+for a, b := 0, 0; a == b; a, b = foo() { ... }
 \end{verbatim} 
 }
 This would be transformed as:
 { \tt \small
 \begin{verbatim}
 var a', b' T
-for a, b := 0, 0;
- a == b;
- a, b = f(a'), f(b') {
+for a, b := 0, 0; a == b; a, b = f(a'), f(b') {
   ...
   a', b' = foo()
 }
@@ -209,17 +211,14 @@ s[i] = a
 The naive reflection transformation includes an extra conversion to an empty interface value. When the value is transformed back into a \texttt{reflect.Value} it is no longer addressable, and the \texttt{Set} operation is invalid on it:
 { \tt \small
 \begin{verbatim}
-temp := reflect.ValueOf(s).Index(i)
-  .Interface()
-reflect.ValueOf(temp)
-  .Set(reflect.ValueOf(value)) //error
+temp := reflect.ValueOf(s).Index(i).Interface()
+reflect.ValueOf(temp).Set(reflect.ValueOf(value)) //error
 \end{verbatim}
 }
 The correct transformation omits this unnecessary conversion:
 { \tt \small
 \begin{verbatim}
-reflect.ValueOf(s).Index(i)
-  .Set(reflect.ValueOf(value))
+reflect.ValueOf(s).Index(i).Set(reflect.ValueOf(value))
 \end{verbatim}
 }
 
@@ -236,8 +235,7 @@ Pointer dereferencing:
 Reflection:
 { \tt \small
 \begin{verbatim}
-reflect.Indirect(reflect.ValueOf(p))
-  .Interface()
+reflect.Indirect(reflect.ValueOf(p)).Interface()
 \end{verbatim}
 }
 
@@ -254,16 +252,6 @@ Reflection:
 reflect.ValueOf(s).Index(i).Interface()
 \end{verbatim}
 }
-
-\item
-Slice index assignment:
-{ \tt \small
-\begin{verbatim}
-s[i] = value
-\end{verbatim}
-}
-Reflection:
-
 
 \item
 Length calculation:
@@ -333,7 +321,7 @@ The second benchmark, in Figure \ref{fig:quicksort}, is a naive \texttt{quicksor
     \input{quicksort.pgf}
 \end{figure}
 
-Both reflection implementations have additional overhead compared to the conventional version due to the allocations that must be performed to create the intermediate reflection values and operate on them. The hand-written reflection implementation can reduce duplication of reflection operations by reusing values in multiple expressions. Profiling data for the hand-written reflection implementation\footnote{Profiling is not currently available for generic functions} in Table \ref{tab:reflect_profile} indicates that most of the additional execution time is spent within the allocation code in the \texttt{reflect} package, particularly when extracting values out of the reflection context after an operation completes.  The conventional implementation also has the advantage of allowing many operations to be statically allocated, or to use registers. More optimization opportunities are exposed to the compiler in the conventional versions for this reason.
+Both reflection implementations have additional overhead compared to the conventional version due to the allocations that must be performed to create the intermediate reflection values and operate on them. The hand-written reflection implementation can reduce duplication of reflection operations by reusing values in multiple expressions. Profiling data for the hand-written reflection implementation\footnote{Profiling is not currently available for generic functions} in Table \ref{tab:reflectprofile} indicates that most of the additional execution time is spent within the allocation code in the \texttt{reflect} package, particularly when extracting values out of the reflection context after an operation completes.  The conventional implementation also has the advantage of allowing many operations to be statically allocated, or to use registers. More optimization opportunities are exposed to the compiler in the conventional versions for this reason.
 
 \begin{table}
 \centering
@@ -398,6 +386,367 @@ The source code for the modified version of the LLGO compiler can be found at \u
 
 }
 
+\clearpage
+
+\begin{appendices}
+
+\section{Modified Grammar} \label{App:grammar}
+
+The complete Go grammar is included below. Non-terminals are enclosed in brackets: $\langle NonTerminal \rangle$. Terminal strings are enclosed in single quotes: \texttt{`terminal'}
+
+\subsection{New or Modified Productions}
+
+\begin{grammar}
+
+<Signature> ::= [ <TypeParams> ] <Parameters> [ <Result> ]
+
+<TypeParams> ::= `<' <TypeParamList> [ `,' ] `>'
+
+<TypeParamList> ::= <TypeParamDecl> \{ `,' <TypeParamDecl> \}
+
+<TypeParamDecl> ::= <IdentifierList> <Type>
+
+<Arguments>      ::= `(' [ <TypeArgumens> `,' ] [ <ValueArguments> ] `)'
+
+<TypeArguments> ::= `<' <TypeList> [ `,' ] `>'
+
+<TypeList>        ::= <Type> \{ `,' <Type> \}
+
+<ValueArguments> ::= <AgumentList> [ `...' ] [ `,' ]
+
+<ArgumentList> ::= <ExpressionList>
+\alt <Type> [ `,' <ExpressionList> ]
+
+\end{grammar}
+
+\subsection{Unchanged Productions}
+
+\begin{grammar}
+
+<Type>      ::= <TypeName>
+\alt <TypeLit>
+\alt `(' <Type> `)'
+
+<TypeName>  ::= <identifier> | <QualifiedIdent>
+
+<TypeLit>   ::= <ArrayType> | <StructType> | <PointerType> | <FunctionType> 
+| <InterfaceType> | <SliceType> | <MapType> | <ChannelType>
+
+
+<ArrayType>   ::= `[' <ArrayLength> `]' <ElementType>
+
+<ArrayLength> ::= <Expression>
+
+<ElementType> ::= <Type>
+
+
+<SliceType> ::= `[' `]' <ElementType>
+
+
+<StructType>     ::= `struct' `{' \{ <FieldDecl> `;' \} `}'
+
+<FieldDecl>      ::= (<IdentifierList> <Type> | <AnonymousField>) [ <Tag> ]
+
+<AnonymousField> ::= [ `*' ] <TypeName>
+
+<Tag>            ::= <string_lit>
+
+
+<PointerType> ::= `*' <BaseType>
+
+<BaseType>    ::= <Type>
+
+
+<FunctionType>   ::= `func' <Signature>
+
+<Result>         ::= <Parameters> | <Type>
+
+<Parameters>     ::= `(' [ <ParameterList> [ `,' ] ] `)'
+
+<ParameterList>  ::= <ParameterDecl> \{ `,' <ParameterDecl> \}
+
+<ParameterDecl>  ::= [ <IdentifierList> ] [ `...' ] <Type>
+
+
+<InterfaceType>      ::= `interface' `{' \{ <MethodSpec> `;' \} `}'
+
+<MethodSpec>         ::= <MethodName> <Signature>
+\alt <InterfaceTypeName>
+
+<MethodName>         ::= <identifier>
+
+<InterfaceTypeName>  ::= <TypeName>
+
+
+<MapType>     ::= `map' `[' <KeyType> `]' <ElementType>
+
+<KeyType>     ::= <Type>
+
+
+<ChannelType> ::= ( `chan' | `chan' `<-' | `<-' `chan' ) <ElementType>
+
+
+<Block> ::= `{' <StatementList> `}'
+
+<StatementList> ::= \{ <Statement> `;' \}
+
+
+<Declaration>   ::= <ConstDecl> | <TypeDecl> | <VarDecl>
+
+<TopLevelDecl>  ::= <Declaration> | <FunctionDecl> | <MethodDecl>
+
+
+<ConstDecl>      ::= `const' ( <ConstSpec> | `(' \{ <ConstSpec> `;' \} `)' )
+
+<ConstSpec>      ::= <IdentifierList> [ [ <Type> ] `=' <ExpressionList> ]
+
+
+<IdentifierList> ::= <identifier> \{ `,' <identifier> \}
+
+<ExpressionList> ::= <Expression> \{ `,' <Expression> \}
+
+
+<TypeDecl>     ::= `type' ( <TypeSpec> | `(' \{ <TypeSpec> `;' \} `)' )
+
+<TypeSpec>     ::= <identifier> <Type>
+
+
+<VarDecl>     ::= `var' ( <VarSpec> | `(' \{ <VarSpec> `;' \} `)' )
+
+<VarSpec>     ::= <IdentifierList> \\( <Type> [ `=' <ExpressionList> ] | `=' <ExpressionList> )
+
+
+<ShortVarDecl> ::= <IdentifierList> `:=' <ExpressionList>
+
+
+<FunctionDecl> ::= `func' <FunctionName> ( <Function> | <Signature> )
+
+<FunctionName> ::= <identifier>
+
+<Function>     ::= <Signature> <FunctionBody>
+
+<FunctionBody> ::= <Block>
+
+
+<MethodDecl>   ::= `func' <Receiver> <MethodName>\\
+( <Function> | <Signature> )
+
+<Receiver>     ::= <Parameters>
+
+
+<Operand>     ::= <Literal> 
+\alt <OperandName>
+\alt <MethodExpr>
+\alt `(' <Expression> `)'
+
+<Literal>     ::= <BasicLit> | <CompositeLit> | <FunctionLit>
+
+<BasicLit>    ::= <int_lit> | <float_lit> | <imaginary_lit> | <rune_lit> | <string_lit>
+
+<OperandName> ::= <identifier> | <QualifiedIdent>
+
+
+<QualifiedIdent> ::= <PackageName> `.' <identifier>
+
+
+<CompositeLit>  ::= <LiteralType> <LiteralValue>
+
+<LiteralType>   ::= <StructType>
+\alt <ArrayType>
+\alt `[' `...' `]' <ElementType>
+\alt <SliceType>
+\alt <MapType>
+\alt <TypeName>
+
+<LiteralValue>  ::= `{' [ <ElementList> [ `,' ] ] `}'
+
+<ElementList>   ::= <KeyedElement> \{ `,' <KeyedElement> \}
+
+<KeyedElement>  ::= [ <Key> `:' ] <Element>
+
+<Key>           ::= <FieldName> | <Expression> | <LiteralValue>
+
+<FieldName>     ::= <identifier>
+
+<Element>       ::= <Expression> | <LiteralValue>
+
+
+<FunctionLit> ::= `func' <Function>
+
+
+<PrimaryExpr> ::= <Operand>
+\alt <Conversion>
+\alt <PrimaryExpr> <Selector>
+\alt <PrimaryExpr> <Index>
+\alt <PrimaryExpr> <Slice>
+\alt <PrimaryExpr> <TypeAssertion>
+\alt <PrimaryExpr> <Arguments>
+
+
+<Selector>       ::= `.' <identifier>
+
+<Index>          ::= `[' <Expression> `]'
+
+<Slice>          ::= `[' <SliceIndices> `]'
+
+<SliceIndices> ::= ( [ <Expression> ] `:' [ <Expression> ] )
+\alt ( [ <Expression> ] `:' <Expression> `:' <Expression> )
+
+<TypeAssertion>  ::= `.' `(' <Type> `)'
+
+<MethodExpr>    ::= <ReceiverType> `.' <MethodName>
+
+<ReceiverType>  ::= <TypeName>
+\alt `(' `*' <TypeName> `)'
+\alt `(' <ReceiverType> `)'
+
+
+<Expression> ::= <UnaryExpr>
+\alt <Expression> <binary_op> <Expression>
+
+<UnaryExpr>  ::= <PrimaryExpr>
+\alt <unary_op> <UnaryExpr>
+
+
+<binary_op>  ::= `||' | `\&\&' | <rel_op> | <add_op> | <mul_op>
+
+<rel_op>     ::= `==' | `!=' | `<' | `<=' | `>' | `>='
+
+<add_op>     ::= `+' | `-' | `|' | `^'
+
+<mul_op>     ::= `*' | `/' | `\%' | `<<' | `>>' | `&' | `&^'
+
+
+<unary_op>   ::= `+' | `-' | `!' | `^' | `*' | `&' | `<-'
+
+
+<Conversion> ::= <Type> `(' <Expression> [ `,' ] `)'
+
+
+<Statement> ::=
+	<Declaration> | <LabeledStmt> | <SimpleStmt> |
+	<GoStmt> | <ReturnStmt> | <BreakStmt> | <ContinueStmt> | <GotoStmt> |
+	<FallthroughStmt> | <Block> | <IfStmt> | <SwitchStmt> | <SelectStmt> | <ForStmt> |
+	<DeferStmt>
+
+
+<SimpleStmt> ::= <ExpressionStmt> | <SendStmt> | <IncDecStmt> | <Assignment> | <ShortVarDecl>
+
+
+<LabeledStmt> ::= <Label> `:' <Statement>
+
+<Label>       ::= <identifier>
+
+
+<ExpressionStmt> ::= <Expression>
+
+
+<SendStmt> ::= <Channel> `<-' <Expression>
+
+<Channel>  ::= <Expression>
+
+
+<IncDecStmt> ::= <Expression> ( `++' | `--' )
+
+
+<Assignment> ::= <ExpressionList> <assign_op> <ExpressionList>
+
+
+<assign_op> ::= [ <add_op> | <mul_op> ] `='
+
+
+<IfStmt> ::= `if' [ <SimpleStmt> `;' ] <Expression> <Block> [ <ElseStmt> ]
+
+<ElseStmt> ::= `else' ( <IfStmt> | <Block> )
+
+
+<SwitchStmt> ::= <ExprSwitchStmt> | <TypeSwitchStmt>
+
+
+<ExprSwitchStmt> ::= `switch' [ <SimpleStmt> `;' ] [ <Expression> ] \\
+`{' \{ <ExprCaseClause> \} `}'
+
+<ExprCaseClause> ::= <ExprSwitchCase> `:' <StatementList>
+
+<ExprSwitchCase> ::= `case' <ExpressionList>
+\alt `default'
+
+
+<TypeSwitchStmt>  ::= `switch' [ <SimpleStmt> `;' ] <TypeSwitchGuard> \\
+`{' \{ <TypeCaseClause> \} `}'
+
+<TypeSwitchGuard> ::= [ <identifier> `:=' ] <PrimaryExpr> `.' `(' `type' `)'
+
+<TypeCaseClause>  ::= <TypeSwitchCase> `:' <StatementList>
+
+<TypeSwitchCase>  ::= `case' <TypeList>
+\alt `default'
+
+
+<ForStmt> ::= `for' [ <Condition> | <ForClause> | <RangeClause> ] <Block>
+
+<Condition> ::= <Expression>
+
+
+<ForClause> ::= [ <InitStmt> ] `;' [ <Condition> ] `;' [ <PostStmt> ]
+
+<InitStmt> ::= <SimpleStmt>
+
+<PostStmt> ::= <SimpleStmt>
+
+
+<RangeClause> ::= [ <ExpressionList> `=' | <IdentifierList> `:=' ] `range' <Expression>
+
+
+<GoStmt> ::= `go' <Expression>
+
+
+<SelectStmt> ::= `select' `{' \{ <CommClause> \} `}'
+
+<CommClause> ::= <CommCase> `:' <StatementList>
+
+<CommCase>   ::= `case' ( <SendStmt> | <RecvStmt> ) | `default'
+
+<RecvStmt>   ::= [ <ExpressionList> `=' | <IdentifierList> `:=' ] <RecvExpr>
+
+<RecvExpr>   ::= <Expression>
+
+
+<ReturnStmt> ::= `return' [ <ExpressionList> ]
+
+
+<BreakStmt> ::= `break' [ <Label> ]
+
+
+<ContinueStmt> ::= `continue' [ <Label> ]
+
+
+<GotoStmt> ::= `goto' <Label>
+
+
+<FallthroughStmt> ::= `fallthrough'
+
+
+<DeferStmt> ::= `defer' <Expression>
+
+
+<SourceFile>       ::= <PackageClause> `;' \{ <ImportDecl> `;' \} \\\{ <TopLevelDecl> `;' \}
+
+
+<PackageClause>  ::= `package' <PackageName>
+
+<PackageName>    ::= <identifier>
+
+
+<ImportDecl>       ::= `import' ( <ImportSpec> | `(' \{ <ImportSpec> `;' \} `)' )
+
+<ImportSpec>       ::= [ `.' | <PackageName> ] <ImportPath>
+
+<ImportPath>       ::= <string_lit>
+
+\end{grammar}
+
+\end{appendices}
 
 \end{document}
 
