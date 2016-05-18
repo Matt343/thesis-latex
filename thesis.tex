@@ -19,8 +19,8 @@
 % foot of page notes, don't include the endnotes package in the 
 % usepackage command, below.
 
-\documentclass[letterpaper,twocolumn,11pt]{article}
-\usepackage{epsfig,endnotes,amsmath,pgf,hyperref,mathpartir,authblk,comment}
+\documentclass[letterpaper,11pt]{article}
+\usepackage{syntax,epsfig,endnotes,amsmath,pgf,hyperref,mathpartir,comment,authblk}
 \usepackage[toc,page]{appendix}
 
 \begin{document}
@@ -86,7 +86,7 @@ Unfortunately, the `\textbf{$<$}' character cannot be unambiguously parsed as ei
 
 One other issue that had to be addressed to allow for these grammar extensions is introduced by the lexer, which translates the source file into a list of tokens for easier parsing. Since `\textbf{$>>$}' is a token used for bit-shifting, the parser must be able to accept `\textbf{$>>$}' or  `\textbf{$>$}' when consuming closing brackets in nested type parameter sections. This is accomplished by tracking whether or not the parser is inside a nested type parameter list, and allowing  `\textbf{$>>$}' to close the inner and outer parameter lists. Using this system, there is no risk of the right shift operator being mistaken for a part of a parameter list, as it is not valid in type signatures, and any combination of single or double angle brackets can be parsed correctly.
 
-\section{Type Checking} \label{type_checking}
+\section{Type Checking} \label{typechecking}
 
 Once the new language constructs were correctly parsed into AST nodes, the type checker was updated to respect the new typing rules. The type checking module of the standard library, \texttt{go/types}, implements a type checker that associates each expression and definition in the AST with a type and verifies that all of the type rules are obeyed. The type checker recursively processes each node in the AST, building up types for complex expressions from their constituents. The system also infers types if they are omitted in the short form of variable assignment. 
 
@@ -108,7 +108,7 @@ foo(<S>, val)
 }
 uses \texttt{S} as the specific type argument for parameter \texttt{A}. In this case, the type of the complete call expression is \texttt{S}. In functions where the type parameters are used in the formal parameters of the function signature, their types can be inferred from the types of the arguments to the function. In this case, the function call could be written as \texttt{foo(val)} without changing the meaning.
 
-\subsection{Similar Type Systems} \label{similar_type_systems}
+\subsection{Similar Type Systems} \label{similartypesystems}
 
 This implementation of generic functions is similar to the generic implementations in Java and C\#, with some characteristics of the template system in C++ \cite{ghosh2004generics} \cite{csharp}. In all of these systems, type parameters represent (potentially bounded) unknown runtime types. Differences from the Java and C\# systems emerge due to Go's existing type system. Because there is no concept of inheritance in Go, the only way for type parameters to represent multiple potential runtime types is if they are bounded by interface types. Since type parameters bounded by non-interface types would only have a single valid type substitution, they are disallowed in this system. Another difference from the Java and C\# systems is that Go's interface system is completely structural rather than nominal, i.e., there is no need to indicate which interfaces a particular type implements. Because of this, the proposed generic system in Go is also structural, and is similar to the concept system used in C++ to describe which types are valid parameters to a class template. The type bound for a type parameter describes which operations must be supported on the runtime type, whereas in C++ this is usually specified by a contract in the documentation or through more complex methods \cite{siek2000concept}. The C++ compiler essentially performs structural subtype checking when a class template is instantiated with a concrete type, but because the required operations are not explicitly declared in the type system the communication of these requirements to the programmer is less intuitive unless complex concept checking practices are followed. The generic function system described here gains some of the benefits of the structural type bounding, such as the ability to define the required operations of a type without regard to an existing type hierarchy, while also providing the explicit communication of the nominal systems.
 
@@ -137,11 +137,11 @@ In Go's type system, the only subtype relationship is the structural subtyping r
 
 If the generic system was extended to include generic structs and interfaces, then variance would need to be considered on the type parameters of interfaces. Additional annotations on the type parameter list of generic interfaces would allow the programmer to indicate the variance of each parameter. The type checker would need to ensure that certain rules about the uses of covariant and contravariant type parameters were followed, to ensure that the subtyping rule implied by the variance of the type parameters would result in only type safe operations.
 
-\section{Code Generation} \label{code_generation}
+\section{Code Generation} \label{codegeneration}
 
 The most involved changes to the compiler were required to generate the correct code to implement the new language constructs. Generic functions must be able to accept arguments of types that are different than the types used to type check and generate the body of the function. In the case of arguments that have the direct type of a type parameter, the argument can simply be converted to the interface type of the type bound and used as a regular interface within the body of the function. If a return value from the function uses a type parameter directly, a type assertion can be used after the value is returned to transform it back into the specific type substituted for that type parameter at the call site. Additional steps must be taken for arguments that have more complex types containing type parameters, which will be referred to as complex parameterized types. For these types, such as slices of or pointers to a type parameter, there is no way within the existing type system to translate the memory layout of the actual argument to the expected format. For these values, the code generation system must be extended to provide a method of generating the generic function that is independent of the memory layout of the argument values. There are several possible methodologies for accomplishing this, with trade offs in implementation complexity, runtime speed, and code size. 
 
-\subsection{AST Transformation} \label{ast_transformation}
+\subsection{AST Transformation} \label{asttransformation}
 
 A process of AST transformation is used to translate the input AST into a standard Go AST with no generic functionality. This AST transformation is implemented as a depth-first traversal of the AST, with each node being transformed by a function into its standard form. In this way, complex expressions are translated by first transforming their parts, and then performing any additional modifications needed to combine the simple expressions into the complex one.
 
@@ -282,7 +282,7 @@ reflect.ValueOf(s).Len()
 \end{itemize}
 
 
-\subsection{Signature Transformation} \label{signature_transformation}
+\subsection{Signature Transformation} \label{signaturetransformation}
 
 In addition to transforming the bodies of generic functions, their type signatures and calling expressions must also be changed. Any argument or return types that are complex parameterized types are transformed into empty interface values, so that the correct transformations are made to wrap input values in the empty interface context. Call sites of such functions are updated to perform type assertions on their results, so that the results are returned in the format that the calling expression expects. Additional parameters are also added to the signatures of generic functions. The added parameters are \texttt{reflect.Type} values that correspond to specific types substituted for each type parameter at the call site. These values are needed so that allocations involving type parameters can be translated into their reflection versions. For example, a function may include a call to \texttt{make} for a slice of a type parameter \texttt{A}:
 { \tt \small
@@ -303,7 +303,7 @@ func f<A B>(t$A reflect.Type) interface{} {
 
 If the reflection version of \texttt{make} was not used in this case, the returned slice would always be a slice of the type bound of \texttt{A}, not a slice of the concrete type supplied at the call site. A type assertion at the call sites of \texttt{f} transforms the resulting empty interface value into the slice of the concrete type expected.
 
-\subsection{Alternatives for Code Generations} \label{code_gen_alt}
+\subsection{Alternatives for Code Generations} \label{codegenalt}
 
 The reflection method of generating generic code is only one implementation possibility. The reflection system makes use of the structure of interface values internally. Each interface value consists of two pointers, one to the data contained within the value, and another to the type information for the runtime concrete type of the value. The reflection system operates on these type and value pointers, performing the necessary transformations to each to produce the next set of values. Using the reflection system directly involves many function calls, as well as runtime checks to ensure that the operations performed on the reflection values are valid given the actual runtime type of the input. In the case of generic code generation, these calls could be avoided by performing the operations on the type and value pointers directly without invoking a library. Many of the runtime checks could potentially be avoided as well, since the type system should ensure that the input values have the correct form before the reflection operations take place. This inline introspection could provide performance improvements over the AST transformations used here. They would require significant changes to the lower level parts of the code generation system, at both the SSA and LLVM IR levels. The current system has the advantage that since it does not change the low level code generation system, it cannot introduce bugs in these complex systems. For a proof of concept, the advantages in ease of development and debugging were chosen over the potential performance gains.
 
@@ -337,7 +337,7 @@ Both reflection implementations have additional overhead compared to the convent
 
 \begin{table}
 \centering
-% BEGIN RECEIVE ORGTBL sort_reflect_profile
+% BEGIN RECEIVE ORGTBL sortreflectprofile
 \begin{tabular}{lrl}
 Time & Time (\%{}) & Function \\
 \hline
@@ -355,9 +355,9 @@ Time & Time (\%{}) & Function \\
 0.62s & 5.40\%{} & runtime.assertE2T \\
 0.59s & 5.14\%{} & reflect.Value.Index \\
 \end{tabular}
-% END RECEIVE ORGTBL sort_reflect_profile
+% END RECEIVE ORGTBL sortreflectprofile
 \begin{comment}
-#+ORGTBL: SEND sort_reflect_profile orgtbl-to-latex :splice nil :skip 0
+#+ORGTBL: SEND sortreflectprofile orgtbl-to-latex :splice nil :skip 0
 | Time  | Time (%) | Function                |
 |-------+----------+-------------------------|
 | 8.83s |   76.92% | main.quicksortReflect   |
@@ -374,7 +374,7 @@ Time & Time (\%{}) & Function \\
 | 0.62s |    5.40% | runtime.assertE2T       |
 | 0.59s |    5.14% | reflect.Value.Index     |
 \end{comment}
-\caption{Cumulative runtime of functions in the hand-written implementation of \texttt{quicksort}. Only functions called from within the sorting code and that account for at least 5\% of the total runtime are included. The \texttt{runtime/pprof} package of the Go standard library was used to collect performance data.}\label{tab:reflect_profile}
+\caption{Cumulative runtime of functions in the hand-written implementation of \texttt{quicksort}. Only functions called from within the sorting code and that account for at least 5\% of the total runtime are included. The \texttt{runtime/pprof} package of the Go standard library was used to collect performance data.}\label{tab:reflectprofile}
 \end{table}
 
 These results indicate that the runtime cost associated with generic functions is significant in this implementation. Performing the introspection directly instead of dispatching to the existing reflection system could produce performance gains by avoiding the allocation of intermediate objects. These results also suggest that generating specialized versions of generic function implementations could provide significant performance improvements, as the specialized functions generated would be closer to the hand-written conventional functions that served as the baseline for these benchmarks. Since the performance of non-generic code is unaffected by the generic system, the programmer can determine if the abstraction provided by generic programming is worth the trade off in speed.
